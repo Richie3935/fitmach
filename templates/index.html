@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fashion Compare</title>
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>FashionCompare</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/shop">Shop</a>
+            <a href="/account">My Account</a>
+        </nav>
+    </header>
+    
+    <main>
+        <section class="hero">
+            <h2>Compare fashion prices across top brands</h2>
+            <form action="/compare" method="get">
+                <input type="text" name="query" placeholder="Search for products...">
+                <button type="submit">Compare Prices</button>
+            </form>
+        </section>
+    </main>
+    
+    <footer>
+        <p>&copy; 2023 FashionCompare</p>
+    </footer>
+</body>
+</html>
