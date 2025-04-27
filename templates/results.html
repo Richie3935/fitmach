@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results for {{ query }}</title>
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>FashionCompare</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/shop">Shop</a>
+            <a href="/account">My Account</a>
+        </nav>
+    </header>
+    
+    <main>
+        <section class="results">
+            <h2>Results for "{{ query }}"</h2>
+            
+            {% for store, products in results.items() %}
+            {% if products %}
+            <div class="store-results">
+                <h3>{{ store }}</h3>
+                <div class="products">
+                    {% for product in products %}
+                    <div class="product-card">
+                        {% if product.image %}
+                        <img src="{{ product.image }}" alt="{{ product.name }}">
+                        {% endif %}
+                        <h4>{{ product.name }}</h4>
+                        <p class="price">{{ product.price }}</p>
+                        <a href="{{ product.url }}" target="_blank">View Product</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </section>
+    </main>
+</body>
+</html>
