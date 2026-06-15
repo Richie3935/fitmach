@@ -20,8 +20,7 @@ CREATE TABLE IF NOT EXISTS store_results (
     image_url TEXT,
     match_score INT DEFAULT 0,
     fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (search_log_id) REFERENCES search_logs(id)
-        ON DELETE SET NULL
+    FOREIGN KEY (search_log_id) REFERENCES search_logs(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS price_history (
@@ -57,3 +56,16 @@ CREATE TABLE IF NOT EXISTS saved_products (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Wishlist: separate from saved products; users flag items they want to watch
+CREATE TABLE IF NOT EXISTS wishlist (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    store_name VARCHAR(80) NOT NULL,
+    product_title VARCHAR(500) NOT NULL,
+    price_text VARCHAR(80),
+    price_value DECIMAL(10,2),
+    product_url TEXT,
+    image_url TEXT,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

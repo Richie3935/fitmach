@@ -1,66 +1,237 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Price History - {{ title }}</title>
-    <link href="/static/style.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price History — {{ title }}</title>
+  <link href="/static/style.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
-    <header>
-        <h1>FashionCompare</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/shop">Shop</a>
-            {% if user %}
-            <a href="/account">My Account</a>
-            <a href="/logout">Sign Out</a>
-            {% else %}
-            <a href="/signin">Sign In</a>
-            {% endif %}
-        </nav>
-    </header>
+  <header>
+    <div class="logo">Fashion<span>Compare</span></div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/account">My Account</a>
+      {% if user %}
+      <a href="/account">My Account</a>
+      <a href="/logout">Sign Out</a>
+      {% else %}
+      <a href="/signin">Sign In</a>
+      <a href="/signup" class="nav-cta">Sign Up</a>
+      {% endif %}
+    </nav>
+  </header>
 
-    <main>
-        <section class="price-history-container">
-            <h2>Price History for "{{ title }}"</h2>
-            <p><a href="{{ url }}" target="_blank">View Live Product page</a></p>
+  <main>
+    <div class="history-page">
+      <a href="javascript:history.back()" style="font-size:.85rem;color:var(--slate);display:inline-flex;align-items:center;gap:.35rem;margin-bottom:1.25rem;">← Back</a>
 
-            {% if error %}
-            <p class="save-status warning">{{ error }}</p>
-            {% endif %}
+      <h2>Price History</h2>
+      <p class="sub">
+        <strong>{{ title }}</strong> ·
+        <a href="{{ url }}" target="_blank" rel="noopener">View live product ↗</a>
+      </p>
 
-            {% if history %}
-            <table border="1" cellpadding="10" style="width: 100%; border-collapse: collapse; margin-top: 1.5rem;">
-                <thead>
-                    <tr style="background-color: #f5f5f5;">
-                        <th align="left">Date Checked</th>
-                        <th align="left">Price Text</th>
-                        <th align="left">Price Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for record in history %}
-                    <tr>
-                        <td>{{ record.checked_date }}</td>
-                        <td>{{ record.price_text }}</td>
-                        <td>
-                            {% if record.price_value %}
-                            ₹{{ record.price_value }}
-                            {% else %}
-                            N/A
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p>No historical price logs recorded yet for this URL.</p>
-            {% endif %}
-            
-            <p style="margin-top: 2rem;"><a href="javascript:history.back()">&larr; Back to Results</a></p>
-        </section>
-    </main>
+      {% if error %}
+      <div class="alert alert-warn">⚠ {{ error }}</div>
+      {% endif %}
+
+      {% if stats %}
+      <!-- ── Stats grid ── -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Current Price</div>
+          <div class="stat-value">₹{{ "%.0f"|format(stats.current) }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Lowest Ever</div>
+          <div class="stat-value green">₹{{ "%.0f"|format(stats.low) }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Highest Ever</div>
+          <div class="stat-value red">₹{{ "%.0f"|format(stats.high) }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Average Price</div>
+          <div class="stat-value">₹{{ "%.0f"|format(stats.avg) }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">vs. Average</div>
+          <div class="stat-value {% if stats.pct_from_avg <= 0 %}green{% elif stats.pct_from_avg > 10 %}red{% else %}amber{% endif %}">
+            {% if stats.pct_from_avg > 0 %}+{% endif %}{{ stats.pct_from_avg }}%
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Price Trend</div>
+          <div class="stat-value" style="font-size:1rem;padding-top:.25rem;">
+            <span class="trend-badge trend-{{ stats.trend }}">
+              {% if stats.trend == 'falling' %}📉 Falling
+              {% elif stats.trend == 'rising' %}📈 Rising
+              {% else %}➡️ Stable{% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── AI Advisor ── -->
+      {% if advice %}
+      <div class="advisor-card {{ advice.color }}">
+        <div class="advisor-icon">{{ advice.icon }}</div>
+        <div class="advisor-content">
+          <div class="advisor-label">AI Shopping Advisor</div>
+          <div class="advisor-rec">{{ advice.label }}</div>
+          <div class="advisor-reason">{{ advice.reason }}</div>
+          <div class="confidence-bar-wrap">
+            <div class="confidence-label">Confidence: {{ advice.confidence }}%</div>
+            <div class="confidence-bar">
+              <div class="confidence-fill" style="width:{{ advice.confidence }}%"></div>
+            </div>
+          </div>
+          {% if advice.factors %}
+          <ul class="factors-list">
+            {% for icon, text in advice.factors %}
+            <li>{{ icon }} {{ text }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ── Interactive chart ── -->
+      {% if chart_data and chart_data != '[]' %}
+      <div class="chart-wrap">
+        <h3>📊 Price Timeline</h3>
+        <div class="chart-canvas-wrap">
+          <canvas id="priceChart"></canvas>
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+
+      <!-- ── History table ── -->
+      {% if history %}
+      <div class="chart-wrap">
+        <h3>📋 Full Price Log</h3>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Store</th>
+              <th>Price</th>
+              <th>vs. Average</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in history %}
+            <tr>
+              <td>{{ record.checked_date }}</td>
+              <td>{{ record.store_name or '—' }}</td>
+              <td>
+                {% if record.price_value %}
+                  ₹{{ "%.2f"|format(record.price_value) }}
+                {% else %}
+                  {{ record.price_text or 'N/A' }}
+                {% endif %}
+              </td>
+              <td>
+                {% if record.price_value and stats and stats.avg %}
+                  {% set pct = ((record.price_value - stats.avg) / stats.avg * 100) | round(1) %}
+                  <span class="pct-pill {% if pct <= -5 %}pct-below{% elif pct >= 5 %}pct-above{% else %}pct-neutral{% endif %}">
+                    {% if pct > 0 %}+{% endif %}{{ pct }}%
+                  </span>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <p>No price history recorded yet for this product.<br>Search for it again to start building a history.</p>
+      </div>
+      {% endif %}
+
+    </div><!-- /history-page -->
+  </main>
+
+  <footer>
+    <p>&copy; 2024 FashionCompare.</p>
+  </footer>
+
+  <script>
+  (function () {
+    const raw = {{ chart_data | safe }};
+    if (!raw || raw.length === 0) return;
+
+    const labels = raw.map(d => d.date);
+    const prices = raw.map(d => d.price);
+    const avg    = prices.reduce((a, b) => a + b, 0) / prices.length;
+
+    const ctx = document.getElementById('priceChart');
+    if (!ctx) return;
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Price (₹)',
+            data: prices,
+            borderColor: '#F05A28',
+            backgroundColor: 'rgba(240,90,40,.08)',
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointBackgroundColor: '#F05A28',
+            tension: 0.35,
+            fill: true,
+          },
+          {
+            label: 'Average (₹)',
+            data: prices.map(() => Math.round(avg * 100) / 100),
+            borderColor: '#0D9488',
+            borderDash: [6, 3],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { font: { family: 'Inter', size: 12 }, usePointStyle: true } },
+          tooltip: {
+            callbacks: {
+              label: ctx => ' ₹' + ctx.parsed.y.toLocaleString('en-IN'),
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { font: { family: 'Inter', size: 11 }, maxRotation: 30 },
+            grid: { color: 'rgba(0,0,0,.05)' },
+          },
+          y: {
+            ticks: {
+              font: { family: 'Inter', size: 11 },
+              callback: v => '₹' + v.toLocaleString('en-IN'),
+            },
+            grid: { color: 'rgba(0,0,0,.05)' },
+          },
+        },
+      },
+    });
+  })();
+  </script>
 </body>
 </html>

@@ -1,64 +1,188 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Account</title>
-    <link href="/static/style.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Dashboard — FashionCompare</title>
+  <link href="/static/style.css" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <h1>FashionCompare</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/shop">Shop</a>
-            <a href="/account">My Account</a>
-            <a href="/logout">Sign Out</a>
-        </nav>
-    </header>
-    
-    <main>
-        <section class="account-info">
-            <h2>My Account</h2>
-            <div class="user-details">
-                <p><strong>Name:</strong> {{ user.name }}</p>
-                <p><strong>Email:</strong> {{ user.email }}</p>
-                <p><strong>Member since:</strong> {{ user.join_date }}</p>
-            </div>
+  <header>
+    <div class="logo">Fashion<span>Compare</span></div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/account" class="active">My Account</a>
+      <a href="/account" class="active">My Account</a>
+      <a href="/logout">Sign Out</a>
+    </nav>
+  </header>
 
-            <h3>Saved Products</h3>
-            {% if saved_products %}
-            <div class="products" style="margin-bottom: 2rem;">
-                {% for product in saved_products %}
-                <div class="product-card" style="vertical-align: top; min-height: 380px;">
-                    {% if product.image_url %}
-                    <img src="{{ product.image_url }}" alt="{{ product.product_title }}">
-                    {% endif %}
-                    <h4>{{ product.product_title }}</h4>
-                    <p class="price">{{ product.price_text }}</p>
-                    <p class="store-strip" style="font-weight: bold; margin-bottom: 0.5rem;">Store: {{ product.store_name }}</p>
-                    <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                        <a href="{{ product.product_url }}" target="_blank">View Product</a>
-                        <a href="/history?url={{ product.product_url | urlencode }}&title={{ product.product_title | urlencode }}">Price History</a>
-                        <form action="/delete-product" method="post" style="margin: 0; padding: 0;">
-                            <input type="hidden" name="id" value="{{ product.id }}">
-                            <button type="submit" style="width: 100%; font-size: 0.85rem; padding: 0.4rem; cursor: pointer; background-color: #333;">Remove</button>
-                        </form>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p>You haven't saved any products yet.</p>
-            {% endif %}
+  <main>
+    <div class="account-page">
 
-            <h3>Recent Comparisons</h3>
-            <ul class="comparison-history">
-                {% for item in history %}
-                <li>{{ item.query }} - {{ item.date }}</li>
-                {% endfor %}
-            </ul>
-        </section>
-    </main>
+      <!-- ── User hero ── -->
+      <div class="account-hero">
+        <div class="avatar">{{ user.name[0] | upper }}</div>
+        <div>
+          <h2>{{ user.name }}</h2>
+          <p>{{ user.email }} · Member since {{ user.join_date }}</p>
+        </div>
+      </div>
+
+      <!-- ── Dashboard stats ── -->
+      <div class="dash-stats">
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon">💾</div>
+          <div class="dash-stat-num">{{ dash_stats.total_saved }}</div>
+          <div class="dash-stat-lbl">Saved Products</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon">❤️</div>
+          <div class="dash-stat-num">{{ dash_stats.total_wishlist }}</div>
+          <div class="dash-stat-lbl">Wishlist Items</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon">🔍</div>
+          <div class="dash-stat-num">{{ dash_stats.total_searches }}</div>
+          <div class="dash-stat-lbl">Total Searches</div>
+        </div>
+        {% if dash_stats.avg_saved_price %}
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon">📊</div>
+          <div class="dash-stat-num" style="font-size:1.25rem;">₹{{ "%.0f"|format(dash_stats.avg_saved_price) }}</div>
+          <div class="dash-stat-lbl">Avg Saved Price</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon">🏷</div>
+          <div class="dash-stat-num" style="font-size:1.25rem;">₹{{ "%.0f"|format(dash_stats.cheapest_saved) }}</div>
+          <div class="dash-stat-lbl">Cheapest Saved</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ── Tabs ── -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('saved', this)">💾 Saved Products</button>
+        <button class="tab-btn" onclick="switchTab('wishlist', this)">❤ Wishlist</button>
+        <button class="tab-btn" onclick="switchTab('history', this)">🔍 Search History</button>
+      </div>
+
+      <!-- ── Saved Products tab ── -->
+      <div class="tab-pane active" id="tab-saved">
+        {% if saved_products %}
+        <div class="saved-grid">
+          {% for product in saved_products %}
+          <div class="product-card">
+            <div class="product-img-wrap">
+              {% if product.image_url %}
+              <img src="{{ product.image_url }}" alt="{{ product.product_title }}" loading="lazy">
+              {% else %}
+              <span class="no-img">🛍</span>
+              {% endif %}
+            </div>
+            <div class="product-body">
+              <div class="product-name" title="{{ product.product_title }}">{{ product.product_title }}</div>
+              <div class="product-price">{{ product.price_text or '—' }}</div>
+              <div class="product-meta">{{ product.store_name }}</div>
+              <div class="product-meta">Saved {{ product.saved_date }}</div>
+            </div>
+            <div class="product-actions">
+              {% if product.product_url %}
+              <a href="{{ product.product_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">View ↗</a>
+              <a href="/history?url={{ product.product_url | urlencode }}&title={{ product.product_title | urlencode }}" class="btn btn-secondary btn-sm">📈 Price History</a>
+              {% endif %}
+              <form action="/delete-product" method="post" style="margin:0">
+                <input type="hidden" name="id" value="{{ product.id }}">
+                <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">💾</div>
+          <p>No saved products yet.<br><a href="/shop">Browse the shop</a> and save products you like.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ── Wishlist tab ── -->
+      <div class="tab-pane" id="tab-wishlist">
+        {% if wishlist %}
+        <div class="saved-grid">
+          {% for item in wishlist %}
+          <div class="product-card">
+            <div class="product-img-wrap">
+              {% if item.image_url %}
+              <img src="{{ item.image_url }}" alt="{{ item.product_title }}" loading="lazy">
+              {% else %}
+              <span class="no-img">❤</span>
+              {% endif %}
+            </div>
+            <div class="product-body">
+              <div class="product-name" title="{{ item.product_title }}">{{ item.product_title }}</div>
+              <div class="product-price">{{ item.price_text or '—' }}</div>
+              <div class="product-meta">{{ item.store_name }}</div>
+              <div class="product-meta">Added {{ item.added_date }}</div>
+            </div>
+            <div class="product-actions">
+              {% if item.product_url %}
+              <a href="{{ item.product_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">View ↗</a>
+              <a href="/history?url={{ item.product_url | urlencode }}&title={{ item.product_title | urlencode }}" class="btn btn-secondary btn-sm">📈 Price History</a>
+              {% endif %}
+              <form action="/wishlist/remove" method="post" style="margin:0">
+                <input type="hidden" name="id" value="{{ item.id }}">
+                <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">❤️</div>
+          <p>Your wishlist is empty.<br><a href="/shop">Find something you love</a> and add it here.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ── Search History tab ── -->
+      <div class="tab-pane" id="tab-history">
+        {% if history %}
+        <ul class="search-history">
+          {% for item in history %}
+          <li>
+            <span class="q">{{ item.query }}</span>
+            <span style="display:flex;align-items:center;gap:.75rem;">
+              <span class="d">{{ item.date }}</span>
+              <a href="/compare?query={{ item.query | urlencode }}">Search again →</a>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <p>No searches yet. <a href="/">Try comparing prices</a> now.</p>
+        </div>
+        {% endif %}
+      </div>
+
+    </div><!-- /account-page -->
+  </main>
+
+  <footer>
+    <p>&copy; 2024 FashionCompare.</p>
+  </footer>
+
+  <script>
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+  </script>
 </body>
 </html>

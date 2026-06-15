@@ -1,82 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Results for {{ query }}</title>
-    <link href="/static/style.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Results for "{{ query }}" — FashionCompare</title>
+  <link href="/static/style.css" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <h1>FashionCompare</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/shop">Shop</a>
-            {% if user %}
-            <a href="/account">My Account</a>
-            <a href="/logout">Sign Out</a>
-            {% else %}
-            <a href="/signin">Sign In</a>
-            {% endif %}
-        </nav>
-    </header>
+  <header>
+    <div class="logo">Fashion<span>Compare</span></div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/shop">Shop</a>
+      {% if user %}
+      <a href="/account">My Account</a>
+      <a href="/logout">Sign Out</a>
+      {% else %}
+      <a href="/signin">Sign In</a>
+      <a href="/signup" class="nav-cta">Sign Up</a>
+      {% endif %}
+    </nav>
+  </header>
 
-    <main>
-        <section class="results">
-            <h2>Results for "{{ query }}"</h2>
+  <main>
+    <div class="results-header">
+      <h2>Results for "{{ query }}"</h2>
+      <p class="meta">
+        {% if search_id %}
+          Search saved · #{{ search_id }}
+        {% else %}
+          <span style="color:var(--warn);">⚠ Database not connected — results not saved</span>
+        {% endif %}
+      </p>
+    </div>
 
-            {% if search_id %}
-            <p class="save-status">Search saved to MySQL as #{{ search_id }}.</p>
-            {% else %}
-            <p class="save-status warning">MySQL connector is missing or database is not connected.</p>
-            {% endif %}
+    {% if serpapi_error %}
+    <div class="store-section">
+      <div class="alert alert-warn">⚠ SerpAPI error: {{ serpapi_error }}</div>
+    </div>
+    {% endif %}
 
-            {% if results %}
-                {% for store, products in results.items() %}
-                <div class="store-results">
-                    <h3>{{ store }}</h3>
-                    <div class="products">
-                        {% for product in products %}
-                        <div class="product-card">
-                            <div class="product-card-inner">
-                            {% if product.image %}
-                            <img src="{{ product.image }}" alt="{{ product.name }}">
-                            {% endif %}
-                            <h4>{{ product.name }}</h4>
-                            <p class="price">{{ product.price }}</p>
-                            <p class="match-score">Match: {{ product.match_score }}%</p>
-                            <p class="history-count">
-                                <a href="/history?url={{ product.url | urlencode }}&title={{ product.name | urlencode }}">Price history: {{ product.history_count }} record(s)</a>
-                            </p>
-                            <div class="product-actions">
-                                <a href="{{ product.url }}" target="_blank">View Product</a>
+    {% if results %}
+      {% for store, products in results.items() %}
+      <div class="store-section">
+        <div class="store-heading">{{ store }}</div>
+        <div class="products-grid">
+          {% for product in products %}
+          <div class="product-card">
+            <div class="product-img-wrap">
+              {% if product.image %}
+              <img src="{{ product.image }}" alt="{{ product.name }}" loading="lazy">
+              {% else %}
+              <span class="no-img">🛍</span>
+              {% endif %}
+            </div>
+            <div class="product-body">
+              <div class="product-name" title="{{ product.name }}">{{ product.name }}</div>
+              <div class="product-price">{{ product.price }}</div>
+              <div class="product-meta">Match: {{ product.match_score }}%</div>
 
-                                {% if user %}
-                                <form action="/save-product" method="post" style="margin: 0; padding: 0;">
-                                    <input type="hidden" name="store" value="{{ product.store | e }}">
-                                    <input type="hidden" name="title" value="{{ product.name | e }}">
-                                    <input type="hidden" name="price_text" value="{{ product.price | e }}">
-                                    <input type="hidden" name="price_value" value="{{ product.price_value | e }}">
-                                    <input type="hidden" name="url" value="{{ product.url | e }}">
-                                    <input type="hidden" name="image" value="{{ product.image | e }}">
-                                    <button type="submit" class="btn btn-primary">Save Product</button>
-                                </form>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-            {% if serpapi_error %}
-            <p class="save-status warning">SerpAPI request failed: {{ serpapi_error }}</p>
-            {% else %}
-            <p>No live products found. Add a SerpAPI key or try another search.</p>
-            {% endif %}
-            {% endif %}
+            </div>
+            <div class="product-actions">
+              {% if product.url %}
+              <a href="{{ product.url }}" target="_blank" rel="noopener" class="btn btn-ghost">View Product ↗</a>
+              {% endif %}
 
-        </section>
-    </main>
+              {% if user %}
+              <form action="/save-product" method="post" style="margin:0">
+                <input type="hidden" name="store"       value="{{ product.store | e }}">
+                <input type="hidden" name="title"       value="{{ product.name | e }}">
+                <input type="hidden" name="price_text"  value="{{ product.price | e }}">
+                <input type="hidden" name="price_value" value="{{ product.price_value | e }}">
+                <input type="hidden" name="url"         value="{{ product.url | e }}">
+                <input type="hidden" name="image"       value="{{ product.image | e }}">
+                <button type="submit" class="btn btn-secondary">💾 Save</button>
+              </form>
+              <form action="/wishlist/add" method="post" style="margin:0">
+                <input type="hidden" name="store"      value="{{ product.store | e }}">
+                <input type="hidden" name="title"      value="{{ product.name | e }}">
+                <input type="hidden" name="price_text" value="{{ product.price | e }}">
+                <input type="hidden" name="url"        value="{{ product.url | e }}">
+                <input type="hidden" name="image"      value="{{ product.image | e }}">
+                <button type="submit" class="btn btn-primary">❤ Wishlist</button>
+              </form>
+              {% else %}
+              <a href="/signin" class="btn btn-secondary">Sign in to save</a>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      {% if not serpapi_error %}
+      <div class="store-section">
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <p>No products found for "{{ query }}". Try a different search term.</p>
+        </div>
+      </div>
+      {% endif %}
+    {% endif %}
+  </main>
+
+  <footer>
+    <p>&copy; 2024 FashionCompare.</p>
+  </footer>
 </body>
 </html>
