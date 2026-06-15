@@ -13,6 +13,7 @@
             <a href="/">Home</a>
             <a href="/shop">Shop</a>
             <a href="/account">My Account</a>
+            <a href="/logout">Sign Out</a>
         </nav>
     </header>
     
@@ -24,6 +25,33 @@
                 <p><strong>Email:</strong> {{ user.email }}</p>
                 <p><strong>Member since:</strong> {{ user.join_date }}</p>
             </div>
+
+            <h3>Saved Products</h3>
+            {% if saved_products %}
+            <div class="products" style="margin-bottom: 2rem;">
+                {% for product in saved_products %}
+                <div class="product-card" style="vertical-align: top; min-height: 380px;">
+                    {% if product.image_url %}
+                    <img src="{{ product.image_url }}" alt="{{ product.product_title }}">
+                    {% endif %}
+                    <h4>{{ product.product_title }}</h4>
+                    <p class="price">{{ product.price_text }}</p>
+                    <p class="store-strip" style="font-weight: bold; margin-bottom: 0.5rem;">Store: {{ product.store_name }}</p>
+                    <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <a href="{{ product.product_url }}" target="_blank">View Product</a>
+                        <a href="/history?url={{ product.product_url | urlencode }}&title={{ product.product_title | urlencode }}">Price History</a>
+                        <form action="/delete-product" method="post" style="margin: 0; padding: 0;">
+                            <input type="hidden" name="id" value="{{ product.id }}">
+                            <button type="submit" style="width: 100%; font-size: 0.85rem; padding: 0.4rem; cursor: pointer; background-color: #333;">Remove</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p>You haven't saved any products yet.</p>
+            {% endif %}
+
             <h3>Recent Comparisons</h3>
             <ul class="comparison-history">
                 {% for item in history %}

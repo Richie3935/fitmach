@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shop</title>
@@ -12,7 +15,12 @@
         <nav>
             <a href="/">Home</a>
             <a href="/shop">Shop</a>
+            {% if user %}
             <a href="/account">My Account</a>
+            <a href="/logout">Sign Out</a>
+            {% else %}
+            <a href="/signin">Sign In</a>
+            {% endif %}
         </nav>
     </header>
     
@@ -21,12 +29,12 @@
             <h2>Shop by Category</h2>
             <div class="categories">
                 <div class="category-card">
-                    <h3>Men's Clothing</h3>
-                    <a href="/compare?query=men+shirt">Browse</a>
+                    <h3>Sneakers</h3>
+                    <a href="/compare?query=Nike+Air+Max+90">Browse</a>
                 </div>
                 <div class="category-card">
-                    <h3>Women's Clothing</h3>
-                    <a href="/compare?query=women+dress">Browse</a>
+                    <h3>Ethnic Wear</h3>
+                    <a href="/compare?query=women+kurta">Browse</a>
                 </div>
                 <div class="category-card">
                     <h3>Accessories</h3>

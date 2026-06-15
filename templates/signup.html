@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>FashionCompare</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/shop">Shop</a>
+            <a href="/signin">Sign In</a>
+        </nav>
+    </header>
+    
+    <main class="auth-form">
+        <h2>Sign Up</h2>
+        {% if error %}
+        <p class="save-status warning">{{ error }}</p>
+        {% endif %}
+        <form action="/signup" method="post">
+            <input type="text" name="name" placeholder="Full Name" required style="display: block; margin-bottom: 1rem; width: 100%;">
+            <input type="email" name="email" placeholder="Email" required style="display: block; margin-bottom: 1rem; width: 100%;">
+            <input type="password" name="password" placeholder="Password" required style="display: block; margin-bottom: 1rem; width: 100%;">
+            <button type="submit" style="width: 100%;">Sign Up</button>
+        </form>
+        <p style="margin-top: 1rem;">Already have an account? <a href="/signin">Sign in</a></p>
+    </main>
+</body>
+</html>

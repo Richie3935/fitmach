@@ -12,22 +12,30 @@
         <nav>
             <a href="/">Home</a>
             <a href="/shop">Shop</a>
+            {% if user %}
             <a href="/account">My Account</a>
+            <a href="/logout">Sign Out</a>
+            {% else %}
+            <a href="/signin">Sign In</a>
+            {% endif %}
         </nav>
     </header>
-    
+
     <main>
         <section class="hero">
-            <h2>Compare fashion prices across top brands</h2>
+            <h2>Search fashion prices across Indian stores</h2>
             <form action="/compare" method="get">
-                <input type="text" name="query" placeholder="Search for products...">
+                <input type="text" name="query" placeholder="Nike Air Max 90, kurta, handbag..." required minlength="2">
                 <button type="submit">Compare Prices</button>
             </form>
+            <p class="store-strip">Amazon · Myntra · Ajio · Flipkart · Nykaa Fashion</p>
         </section>
     </main>
-    
+
     <footer>
         <p>&copy; 2023 FashionCompare</p>
     </footer>
 </body>
 </html>
+
+
