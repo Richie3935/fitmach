@@ -12,7 +12,6 @@
     <nav>
       <a href="/">Home</a>
       <a href="/account" class="active">My Account</a>
-      <a href="/account" class="active">My Account</a>
       <a href="/logout">Sign Out</a>
     </nav>
   </header>
@@ -32,11 +31,6 @@
       <!-- ── Dashboard stats ── -->
       <div class="dash-stats">
         <div class="dash-stat-card">
-          <div class="dash-stat-icon">💾</div>
-          <div class="dash-stat-num">{{ dash_stats.total_saved }}</div>
-          <div class="dash-stat-lbl">Saved Products</div>
-        </div>
-        <div class="dash-stat-card">
           <div class="dash-stat-icon">❤️</div>
           <div class="dash-stat-num">{{ dash_stats.total_wishlist }}</div>
           <div class="dash-stat-lbl">Wishlist Items</div>
@@ -46,69 +40,33 @@
           <div class="dash-stat-num">{{ dash_stats.total_searches }}</div>
           <div class="dash-stat-lbl">Total Searches</div>
         </div>
-        {% if dash_stats.avg_saved_price %}
+        {% if dash_stats.avg_wishlist_price %}
         <div class="dash-stat-card">
           <div class="dash-stat-icon">📊</div>
-          <div class="dash-stat-num" style="font-size:1.25rem;">₹{{ "%.0f"|format(dash_stats.avg_saved_price) }}</div>
-          <div class="dash-stat-lbl">Avg Saved Price</div>
+          <div class="dash-stat-num" style="font-size:1.25rem;">₹{{ "%.0f"|format(dash_stats.avg_wishlist_price) }}</div>
+          <div class="dash-stat-lbl">Avg Wishlist Price</div>
         </div>
         <div class="dash-stat-card">
           <div class="dash-stat-icon">🏷</div>
-          <div class="dash-stat-num" style="font-size:1.25rem;">₹{{ "%.0f"|format(dash_stats.cheapest_saved) }}</div>
-          <div class="dash-stat-lbl">Cheapest Saved</div>
+          <div class="dash-stat-num" style="font-size:1.25rem;">₹{{ "%.0f"|format(dash_stats.cheapest_wishlist) }}</div>
+          <div class="dash-stat-lbl">Cheapest Item</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon">💎</div>
+          <div class="dash-stat-num" style="font-size:1.25rem;">₹{{ "%.0f"|format(dash_stats.most_expensive_wishlist) }}</div>
+          <div class="dash-stat-lbl">Most Expensive</div>
         </div>
         {% endif %}
       </div>
 
       <!-- ── Tabs ── -->
       <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('saved', this)">💾 Saved Products</button>
-        <button class="tab-btn" onclick="switchTab('wishlist', this)">❤ Wishlist</button>
+        <button class="tab-btn active" onclick="switchTab('wishlist', this)">❤ My Wishlist</button>
         <button class="tab-btn" onclick="switchTab('history', this)">🔍 Search History</button>
       </div>
 
-      <!-- ── Saved Products tab ── -->
-      <div class="tab-pane active" id="tab-saved">
-        {% if saved_products %}
-        <div class="saved-grid">
-          {% for product in saved_products %}
-          <div class="product-card">
-            <div class="product-img-wrap">
-              {% if product.image_url %}
-              <img src="{{ product.image_url }}" alt="{{ product.product_title }}" loading="lazy">
-              {% else %}
-              <span class="no-img">🛍</span>
-              {% endif %}
-            </div>
-            <div class="product-body">
-              <div class="product-name" title="{{ product.product_title }}">{{ product.product_title }}</div>
-              <div class="product-price">{{ product.price_text or '—' }}</div>
-              <div class="product-meta">{{ product.store_name }}</div>
-              <div class="product-meta">Saved {{ product.saved_date }}</div>
-            </div>
-            <div class="product-actions">
-              {% if product.product_url %}
-              <a href="{{ product.product_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">View ↗</a>
-              <a href="/history?url={{ product.product_url | urlencode }}&title={{ product.product_title | urlencode }}" class="btn btn-secondary btn-sm">📈 Price History</a>
-              {% endif %}
-              <form action="/delete-product" method="post" style="margin:0">
-                <input type="hidden" name="id" value="{{ product.id }}">
-                <button type="submit" class="btn btn-danger btn-sm">Remove</button>
-              </form>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty-state">
-          <div class="empty-icon">💾</div>
-          <p>No saved products yet.<br><a href="/shop">Browse the shop</a> and save products you like.</p>
-        </div>
-        {% endif %}
-      </div>
-
       <!-- ── Wishlist tab ── -->
-      <div class="tab-pane" id="tab-wishlist">
+      <div class="tab-pane active" id="tab-wishlist">
         {% if wishlist %}
         <div class="saved-grid">
           {% for item in wishlist %}
@@ -131,6 +89,7 @@
               <a href="{{ item.product_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">View ↗</a>
               <a href="/history?url={{ item.product_url | urlencode }}&title={{ item.product_title | urlencode }}" class="btn btn-secondary btn-sm">📈 Price History</a>
               {% endif %}
+
               <form action="/wishlist/remove" method="post" style="margin:0">
                 <input type="hidden" name="id" value="{{ item.id }}">
                 <button type="submit" class="btn btn-danger btn-sm">Remove</button>
@@ -142,7 +101,7 @@
         {% else %}
         <div class="empty-state">
           <div class="empty-icon">❤️</div>
-          <p>Your wishlist is empty.<br><a href="/shop">Find something you love</a> and add it here.</p>
+          <p>Your wishlist is empty.<br><a href="/">Search for products</a> and add items you want to track.</p>
         </div>
         {% endif %}
       </div>

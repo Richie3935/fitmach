@@ -58,7 +58,6 @@
               <div class="product-name" title="{{ product.name }}">{{ product.name }}</div>
               <div class="product-price">{{ product.price }}</div>
               <div class="product-meta">Match: {{ product.match_score }}%</div>
-
             </div>
             <div class="product-actions">
               {% if product.url %}
@@ -66,25 +65,16 @@
               {% endif %}
 
               {% if user %}
-              <form action="/save-product" method="post" style="margin:0">
-                <input type="hidden" name="store"       value="{{ product.store | e }}">
-                <input type="hidden" name="title"       value="{{ product.name | e }}">
-                <input type="hidden" name="price_text"  value="{{ product.price | e }}">
-                <input type="hidden" name="price_value" value="{{ product.price_value | e }}">
-                <input type="hidden" name="url"         value="{{ product.url | e }}">
-                <input type="hidden" name="image"       value="{{ product.image | e }}">
-                <button type="submit" class="btn btn-secondary">💾 Save</button>
-              </form>
               <form action="/wishlist/add" method="post" style="margin:0">
                 <input type="hidden" name="store"      value="{{ product.store | e }}">
                 <input type="hidden" name="title"      value="{{ product.name | e }}">
                 <input type="hidden" name="price_text" value="{{ product.price | e }}">
                 <input type="hidden" name="url"        value="{{ product.url | e }}">
                 <input type="hidden" name="image"      value="{{ product.image | e }}">
-                <button type="submit" class="btn btn-primary">❤ Wishlist</button>
+                <button type="submit" class="btn btn-primary">❤ Add to Wishlist</button>
               </form>
               {% else %}
-              <a href="/signin" class="btn btn-secondary">Sign in to save</a>
+              <a href="/signin" class="btn btn-secondary">Sign in to add to wishlist</a>
               {% endif %}
             </div>
           </div>

@@ -89,6 +89,9 @@ def prepare_database():
         cursor = connection.cursor()
         add_column_if_missing(cursor, "store_results", "match_score", "INT DEFAULT 0")
         add_column_if_missing(cursor, "store_results", "price_value", "DECIMAL(10,2)")
+        # stable product identity
+        add_column_if_missing(cursor, "wishlist", "product_key", "VARCHAR(255) NOT NULL DEFAULT ''")
+        add_column_if_missing(cursor, "price_history", "product_key", "VARCHAR(255) NOT NULL DEFAULT ''")
 
         cursor.execute(
             """
@@ -100,11 +103,14 @@ def prepare_database():
                 price_text VARCHAR(80),
                 price_value DECIMAL(10,2),
                 product_url TEXT,
+                product_key VARCHAR(255) NOT NULL,
                 image_url TEXT,
-                checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_price_history_product_key (product_key)
             )
             """
         )
+
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
@@ -116,23 +122,7 @@ def prepare_database():
             )
             """
         )
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS saved_products (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                store_name VARCHAR(80) NOT NULL,
-                product_title VARCHAR(500) NOT NULL,
-                price_text VARCHAR(80),
-                price_value DECIMAL(10,2),
-                product_url TEXT,
-                image_url TEXT,
-                saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )
-            """
-        )
-        # Wishlist table
+        # Wishlist is the single product-tracking table
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS wishlist (
@@ -201,6 +191,9 @@ def save_products(search_id, products):
             return
         cursor = connection.cursor()
         for product in products:
+            url = product["url"]
+            pkey = get_product_key(url)
+
             cursor.execute(
                 """
                 INSERT INTO store_results
@@ -213,7 +206,7 @@ def save_products(search_id, products):
                     product["store"],
                     product["name"],
                     product["price"],
-                    product["url"],
+                    url,
                     product["image"],
                     product["match_score"],
                     product["price_value"],
@@ -223,8 +216,8 @@ def save_products(search_id, products):
                 """
                 INSERT INTO price_history
                     (search_log_id, store_name, product_title, price_text,
-                     price_value, product_url, image_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                     price_value, product_url, product_key, image_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     search_id,
@@ -232,7 +225,8 @@ def save_products(search_id, products):
                     product["name"],
                     product["price"],
                     product["price_value"],
-                    product["url"],
+                    url,
+                    pkey,
                     product["image"],
                 ),
             )
@@ -243,7 +237,9 @@ def save_products(search_id, products):
         print("Products were not saved:", error)
 
 
+
 def add_history_count(products):
+
     connection = get_connection()
     if connection is None:
         return products
@@ -251,9 +247,10 @@ def add_history_count(products):
         cursor = connection.cursor()
         for product in products:
             cursor.execute(
-                "SELECT COUNT(*) FROM price_history WHERE product_url = %s",
-                (product["url"],),
+                "SELECT COUNT(*) FROM price_history WHERE product_url = %s OR product_key = %s",
+                (product["url"], product.get("product_key")),
             )
+
             product["history_count"] = cursor.fetchone()[0]
         cursor.close()
         connection.close()
@@ -285,32 +282,8 @@ def get_recent_searches():
         return []
 
 
-def get_saved_products(user_id):
-    try:
-        connection = get_connection()
-        if connection is None:
-            return []
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute(
-            """
-            SELECT id, store_name, product_title, price_text, price_value, product_url, image_url,
-                   DATE_FORMAT(saved_at, '%Y-%m-%d') AS saved_date
-            FROM saved_products
-            WHERE user_id = %s
-            ORDER BY saved_at DESC
-            """,
-            (user_id,),
-        )
-        saved = cursor.fetchall()
-        cursor.close()
-        connection.close()
-        return saved
-    except Exception as e:
-        print("Error getting saved products:", e)
-        return []
-
-
 def get_wishlist(user_id):
+
     try:
         connection = get_connection()
         if connection is None:
@@ -318,9 +291,10 @@ def get_wishlist(user_id):
         cursor = connection.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT id, store_name, product_title, price_text, price_value, product_url, image_url,
+            SELECT id, store_name, product_title, price_text, price_value, product_url, product_key, image_url,
                    DATE_FORMAT(added_at, '%Y-%m-%d') AS added_date
             FROM wishlist
+
             WHERE user_id = %s
             ORDER BY added_at DESC
             """,
@@ -336,7 +310,7 @@ def get_wishlist(user_id):
 
 
 # ---------------------------------------------------------------------------
-# Price history stats + AI advisor (no LLM — pure rule-based)
+# Price history stats + AI advisor (rule-based)
 # ---------------------------------------------------------------------------
 
 def compute_price_stats(history: list) -> dict:
@@ -380,7 +354,6 @@ def compute_price_stats(history: list) -> dict:
 def get_shopping_advice(stats: dict) -> dict:
     """
     Rule-based shopping advisor. Returns recommendation, confidence, and reason.
-    No LLM — pure heuristics on price statistics.
     """
     if not stats:
         return {
@@ -519,6 +492,59 @@ def get_match_score(search_query, product_name):
     return int((word_score + text_score) / 2)
 
 
+def normalize_product_url(url: str) -> str:
+    """Normalize a product URL into a canonical-ish representation.
+
+    Goal: make product identity stable across SERP API URL variants.
+    """
+    if not url:
+        return ""
+    url = str(url).strip()
+    # Lowercase scheme+host, strip fragment, and remove common tracking query params.
+    # Keep path so different products don't collide.
+    try:
+        from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+
+        parts = urlsplit(url)
+        query_pairs = parse_qsl(parts.query, keep_blank_values=True)
+
+        # Drop common tracking params
+        drop_keys = {
+            "utm_source",
+            "utm_medium",
+            "utm_campaign",
+            "utm_term",
+            "utm_content",
+            "gclid",
+            "fbclid",
+            "mc_cid",
+            "mc_eid",
+            "ga",
+            "ref",
+        }
+        filtered = [(k, v) for (k, v) in query_pairs if k.lower() not in drop_keys]
+
+        # Sort for stability
+        filtered.sort(key=lambda kv: kv[0].lower())
+
+        normalized_query = urlencode(filtered, doseq=True)
+        normalized = urlunsplit(
+            (parts.scheme.lower(), parts.netloc.lower(), parts.path, normalized_query, "")
+        )
+        return normalized
+    except Exception:
+        # Fallback: strip fragment and lowercase whole string
+        return url.split("#", 1)[0].strip().lower()
+
+
+def get_product_key(url: str) -> str:
+    """Stable product identity key derived from normalized URL."""
+    normalized = normalize_product_url(url)
+    if not normalized:
+        return ""
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 def get_price_value(price_text):
     if not price_text:
         return None
@@ -529,6 +555,7 @@ def get_price_value(price_text):
         return float(price_numbers)
     except ValueError:
         return None
+
 
 
 def add_product_details(products, query):
@@ -618,17 +645,16 @@ def group_by_store(products):
 
 
 # ---------------------------------------------------------------------------
-# Dashboard stats helper
+# Dashboard stats helper — uses wishlist only
 # ---------------------------------------------------------------------------
 
 def get_dashboard_stats(user_id):
     stats = {
-        "total_saved": 0,
         "total_wishlist": 0,
         "total_searches": 0,
-        "avg_saved_price": None,
-        "cheapest_saved": None,
-        "most_expensive_saved": None,
+        "avg_wishlist_price": None,
+        "cheapest_wishlist": None,
+        "most_expensive_wishlist": None,
     }
     try:
         connection = get_connection()
@@ -636,24 +662,27 @@ def get_dashboard_stats(user_id):
             return stats
         cursor = connection.cursor(dictionary=True)
 
-        cursor.execute("SELECT COUNT(*) AS cnt FROM saved_products WHERE user_id = %s", (user_id,))
-        stats["total_saved"] = cursor.fetchone()["cnt"]
-
         cursor.execute("SELECT COUNT(*) AS cnt FROM wishlist WHERE user_id = %s", (user_id,))
         stats["total_wishlist"] = cursor.fetchone()["cnt"]
 
-        cursor.execute("SELECT COUNT(*) AS cnt FROM search_logs", ())
+        cursor.execute("SELECT COUNT(*) AS cnt FROM search_logs")
         stats["total_searches"] = cursor.fetchone()["cnt"]
 
         cursor.execute(
-            "SELECT AVG(price_value) AS avg_price, MIN(price_value) AS min_p, MAX(price_value) AS max_p FROM saved_products WHERE user_id = %s AND price_value IS NOT NULL",
+            """
+            SELECT AVG(price_value) AS avg_price,
+                   MIN(price_value) AS min_p,
+                   MAX(price_value) AS max_p
+            FROM wishlist
+            WHERE user_id = %s AND price_value IS NOT NULL
+            """,
             (user_id,),
         )
         row = cursor.fetchone()
         if row and row["avg_price"]:
-            stats["avg_saved_price"] = round(float(row["avg_price"]), 2)
-            stats["cheapest_saved"] = round(float(row["min_p"]), 2)
-            stats["most_expensive_saved"] = round(float(row["max_p"]), 2)
+            stats["avg_wishlist_price"] = round(float(row["avg_price"]), 2)
+            stats["cheapest_wishlist"] = round(float(row["min_p"]), 2)
+            stats["most_expensive_wishlist"] = round(float(row["max_p"]), 2)
 
         cursor.close()
         connection.close()
@@ -670,9 +699,6 @@ def get_dashboard_stats(user_id):
 async def home(request: Request):
     user = get_logged_in_user(request)
     return templates.TemplateResponse(request, "index.html", {"user": user})
-
-
-
 
 
 @app.get("/signin")
@@ -749,7 +775,6 @@ async def account_post(request: Request, email: str = Form(...), password: str =
                 {
                     "user": user_data,
                     "history": get_recent_searches(),
-                    "saved_products": get_saved_products(user["id"]),
                     "wishlist": get_wishlist(user["id"]),
                     "dash_stats": get_dashboard_stats(user["id"]),
                 },
@@ -762,12 +787,8 @@ async def account_post(request: Request, email: str = Form(...), password: str =
         return templates.TemplateResponse(request, "signin.html", {"error": "An error occurred during signin."})
 
 
-
-
-
 @app.get("/account")
 async def account_get(request: Request):
-
     user = get_logged_in_user(request)
     if not user:
         return RedirectResponse("/signin", status_code=303)
@@ -777,7 +798,6 @@ async def account_get(request: Request):
         {
             "user": user,
             "history": get_recent_searches(),
-            "saved_products": get_saved_products(user["id"]),
             "wishlist": get_wishlist(user["id"]),
             "dash_stats": get_dashboard_stats(user["id"]),
         },
@@ -815,8 +835,8 @@ async def compare_products(request: Request, query: str = Query(..., min_length=
 @app.get("/history")
 async def price_history_page(request: Request, url: str = Query(...), title: str = Query("")):
 
-
     user = get_logged_in_user(request)
+
     try:
         connection = get_connection()
         if connection is None:
@@ -832,11 +852,12 @@ async def price_history_page(request: Request, url: str = Query(...), title: str
                    DATE_FORMAT(checked_at, '%Y-%m-%d %H:%i') AS checked_date,
                    store_name
             FROM price_history
-            WHERE product_url = %s
+            WHERE product_key = %s
             ORDER BY checked_at DESC
             """,
-            (url,),
+            (get_product_key(url),),
         )
+
         history = cursor.fetchall()
         cursor.close()
         connection.close()
@@ -874,71 +895,8 @@ async def price_history_page(request: Request, url: str = Query(...), title: str
         )
 
 
-@app.post("/save-product")
-async def save_product(
-    request: Request,
-    store: str = Form(None),
-    title: str = Form(None),
-    price_text: str = Form(None),
-    price_value: str = Form(None),
-    url: str = Form(None),
-    image: str = Form(None),
-):
-    user = get_logged_in_user(request)
-    if not user:
-        return RedirectResponse("/signin", status_code=303)
-    if not url or not title:
-        return RedirectResponse("/account", status_code=303)
-
-    parsed_price = get_price_value(price_text)
-    try:
-        connection = get_connection()
-        if connection is None:
-            return RedirectResponse("/account", status_code=303)
-        cursor = connection.cursor()
-        cursor.execute(
-            "SELECT id FROM saved_products WHERE user_id = %s AND product_url = %s",
-            (user["id"], url),
-        )
-        if not cursor.fetchone():
-            cursor.execute(
-                """
-                INSERT INTO saved_products
-                    (user_id, store_name, product_title, price_text, price_value, product_url, image_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                (user["id"], store, title, price_text, parsed_price, url, image),
-            )
-            connection.commit()
-        cursor.close()
-        connection.close()
-    except Exception as e:
-        print("Error saving product:", e)
-    return RedirectResponse("/account", status_code=303)
-
-
-@app.post("/delete-product")
-async def delete_product(request: Request, id: int = Form(...)):
-    user = get_logged_in_user(request)
-    if not user:
-        return RedirectResponse("/signin", status_code=303)
-    try:
-        connection = get_connection()
-        if connection is not None:
-            cursor = connection.cursor()
-            cursor.execute(
-                "DELETE FROM saved_products WHERE id = %s AND user_id = %s", (id, user["id"])
-            )
-            connection.commit()
-            cursor.close()
-            connection.close()
-    except Exception as e:
-        print("Error deleting product:", e)
-    return RedirectResponse("/account", status_code=303)
-
-
 # ---------------------------------------------------------------------------
-# Wishlist routes
+# Wishlist routes — single product-tracking system
 # ---------------------------------------------------------------------------
 
 @app.post("/wishlist/add")
@@ -962,20 +920,24 @@ async def wishlist_add(
         if connection is None:
             return RedirectResponse("/account", status_code=303)
         cursor = connection.cursor()
+        pkey = get_product_key(url)
+
         cursor.execute(
-            "SELECT id FROM wishlist WHERE user_id = %s AND product_url = %s",
-            (user["id"], url),
+
+            "SELECT id FROM wishlist WHERE user_id = %s AND product_key = %s",
+            (user["id"], pkey),
         )
         if not cursor.fetchone():
             cursor.execute(
                 """
                 INSERT INTO wishlist
-                    (user_id, store_name, product_title, price_text, price_value, product_url, image_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (user_id, store_name, product_title, price_text, price_value, product_url, product_key, image_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (user["id"], store, title, price_text, parsed_price, url, image),
+                (user["id"], store, title, price_text, parsed_price, url, pkey, image),
             )
             connection.commit()
+
         cursor.close()
         connection.close()
     except Exception as e:

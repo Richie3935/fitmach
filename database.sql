@@ -31,9 +31,12 @@ CREATE TABLE IF NOT EXISTS price_history (
     price_text VARCHAR(80),
     price_value DECIMAL(10,2),
     product_url TEXT,
+    product_key VARCHAR(255) NOT NULL,
     image_url TEXT,
-    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_price_history_product_key (product_key)
 );
+
 
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -43,20 +46,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS saved_products (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    store_name VARCHAR(80) NOT NULL,
-    product_title VARCHAR(500) NOT NULL,
-    price_text VARCHAR(80),
-    price_value DECIMAL(10,2),
-    product_url TEXT,
-    image_url TEXT,
-    saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Wishlist: separate from saved products; users flag items they want to watch
+-- Wishlist: the single product-tracking system for items users want to monitor or purchase
 CREATE TABLE IF NOT EXISTS wishlist (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -65,7 +55,10 @@ CREATE TABLE IF NOT EXISTS wishlist (
     price_text VARCHAR(80),
     price_value DECIMAL(10,2),
     product_url TEXT,
+    product_key VARCHAR(255) NOT NULL,
     image_url TEXT,
     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_wishlist_product_key (product_key)
 );
+
